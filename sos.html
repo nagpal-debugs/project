@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SENTINEL — SOS Emergency Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg-dark: #030b14;
+      --bg-panel: #071525;
+      --bg-card: #0a1e33;
+      --blue-primary: #0d6efd;
+      --blue-bright: #3d9bff;
+      --blue-glow: rgba(13,110,253,0.35);
+      --blue-accent: #00c8ff;
+      --red-alert: #ff3b3b;
+      --red-glow: rgba(255,59,59,0.4);
+      --green-ok: #00e676;
+      --yellow-warn: #ffd600;
+      --text-primary: #e8f4ff;
+      --text-secondary: #7aa3c8;
+      --text-mono: #4fc3f7;
+      --border: rgba(61,155,255,0.18);
+      --border-bright: rgba(61,155,255,0.5);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      font-family: 'Barlow', sans-serif;
+      min-height: 100vh;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse at 50% 30%, rgba(255,59,59,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse at 20% 80%, rgba(13,110,253,0.1) 0%, transparent 50%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 60px;
+      background: rgba(3,11,20,0.95);
+      border-bottom: 1px solid var(--border-bright);
+      backdrop-filter: blur(12px);
+    }
+    .topbar-brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      width: 36px; height: 36px;
+      background: var(--red-alert);
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px; color: white; font-weight: 700;
+      box-shadow: 0 0 20px var(--red-glow);
+      animation: pulse-red 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-red {
+      0%,100% { box-shadow: 0 0 20px var(--red-glow); }
+      50% { box-shadow: 0 0 45px rgba(255,59,59,0.8); }
+    }
+    .brand-name {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.5rem; font-weight: 700; letter-spacing: 0.15em;
+    }
+    .brand-name span { color: var(--red-alert); }
+    .nav-links { display: flex; gap: 0.5rem; }
+    .nav-link {
+      padding: 6px 14px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.9rem; font-weight: 600; letter-spacing: 0.08em;
+      color: var(--text-secondary); text-decoration: none;
+      border: 1px solid transparent; border-radius: 4px; transition: all 0.2s;
+    }
+    .nav-link:hover, .nav-link.active {
+      color: var(--blue-accent); border-color: var(--border-bright);
+      background: rgba(13,110,253,0.1);
+    }
+
+    /* MAIN */
+    .main {
+      position: relative; z-index: 1;
+      padding: 2rem; max-width: 1200px; margin: 0 auto;
+    }
+
+    /* SOS HERO */
+    .sos-hero {
+      text-align: center; margin-bottom: 3rem;
+      animation: fadeIn 0.6s ease;
+    }
+    .sos-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 3.5rem; font-weight: 700;
+      letter-spacing: 0.3em;
+      color: var(--red-alert);
+      text-shadow: 0 0 40px rgba(255,59,59,0.5);
+      margin-bottom: 0.5rem;
+    }
+    .sos-sub {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.85rem; color: var(--text-secondary);
+      letter-spacing: 0.15em;
+    }
+
+    /* BIG SOS BUTTON */
+    .sos-btn-container {
+      display: flex; justify-content: center;
+      margin-bottom: 3rem;
+    }
+    .sos-btn {
+      width: 200px; height: 200px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,59,59,0.2) 0%, rgba(255,59,59,0.05) 70%);
+      border: 3px solid var(--red-alert);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 40px rgba(255,59,59,0.3), inset 0 0 40px rgba(255,59,59,0.05);
+      transition: all 0.2s;
+      position: relative;
+      animation: pulse-ring 2s ease-in-out infinite;
+    }
+    @keyframes pulse-ring {
+      0%,100% { box-shadow: 0 0 40px rgba(255,59,59,0.3), inset 0 0 40px rgba(255,59,59,0.05); }
+      50% { box-shadow: 0 0 80px rgba(255,59,59,0.6), inset 0 0 60px rgba(255,59,59,0.1); }
+    }
+    .sos-btn:hover {
+      transform: scale(1.05);
+      background: radial-gradient(circle, rgba(255,59,59,0.3) 0%, rgba(255,59,59,0.1) 70%);
+    }
+    .sos-btn:active { transform: scale(0.97); }
+    .sos-btn-label {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 3rem; font-weight: 700;
+      color: var(--red-alert); letter-spacing: 0.2em;
+    }
+    .sos-btn-sub {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem; color: var(--text-secondary);
+      letter-spacing: 0.1em; margin-top: 4px;
+    }
+    .sos-btn::before, .sos-btn::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(255,59,59,0.3);
+      animation: ripple 2s ease-out infinite;
+    }
+    .sos-btn::before { width: 220px; height: 220px; animation-delay: 0s; }
+    .sos-btn::after { width: 250px; height: 250px; animation-delay: 0.5s; }
+    @keyframes ripple {
+      0% { opacity: 0.6; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.3); }
+    }
+
+    /* GRID */
+    .sos-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    /* PANEL */
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden;
+    }
+    .panel-head {
+      padding: 0.9rem 1.2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(13,110,253,0.05);
+    }
+    .panel-head-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.95rem; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    .panel-body { padding: 1.2rem; }
+
+    /* FORM */
+    .form-group { margin-bottom: 1rem; }
+    .form-label {
+      display: block;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.7rem; color: var(--text-secondary);
+      letter-spacing: 0.1em; text-transform: uppercase;
+      margin-bottom: 0.4rem;
+    }
+    .form-control {
+      width: 100%; padding: 0.7rem 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-primary);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.85rem;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    .form-control:focus { border-color: var(--blue-primary); }
+    select.form-control option { background: var(--bg-card); }
+
+    .btn-send {
+      width: 100%; padding: 0.9rem;
+      background: rgba(255,59,59,0.15);
+      border: 1px solid var(--red-alert);
+      color: var(--red-alert);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1rem; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      border-radius: 5px; cursor: pointer;
+      transition: all 0.2s; margin-top: 0.5rem;
+    }
+    .btn-send:hover {
+      background: rgba(255,59,59,0.3);
+      box-shadow: 0 0 20px rgba(255,59,59,0.4);
+    }
+
+    /* RECENT SOS */
+    .sos-list { padding: 0.5rem; }
+    .sos-item {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 0.8rem 0.8rem;
+      border-radius: 5px; margin-bottom: 0.4rem;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+    .sos-item:hover { background: rgba(13,110,253,0.07); border-color: var(--border); }
+    .sos-item-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .sos-item-dot.active { background: var(--red-alert); box-shadow: 0 0 8px var(--red-alert); animation: blink 1s infinite; }
+    .sos-item-dot.resolved { background: var(--green-ok); }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .sos-item-info { flex: 1; }
+    .sos-item-loc {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600; font-size: 0.9rem;
+    }
+    .sos-item-meta {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.68rem; color: var(--text-secondary);
+    }
+    .sos-item-status {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.68rem; padding: 2px 7px; border-radius: 20px;
+    }
+    .sos-item-status.active { background: rgba(255,59,59,0.1); color: var(--red-alert); border: 1px solid rgba(255,59,59,0.3); }
+    .sos-item-status.resolved { background: rgba(0,230,118,0.1); color: var(--green-ok); border: 1px solid rgba(0,230,118,0.3); }
+
+    /* STATUS TOAST */
+    .toast {
+      position: fixed; top: 80px; right: 2rem;
+      padding: 1rem 1.5rem;
+      background: var(--bg-panel);
+      border: 1px solid var(--green-ok);
+      border-radius: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem; color: var(--green-ok);
+      box-shadow: 0 0 20px rgba(0,230,118,0.2);
+      transform: translateX(200%);
+      transition: transform 0.3s ease;
+      z-index: 200;
+    }
+    .toast.show { transform: translateX(0); }
+    .toast.error { border-color: var(--red-alert); color: var(--red-alert); box-shadow: 0 0 20px rgba(255,59,59,0.2); }
+
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-icon">!</div>
+    <div class="brand-name">SENTI<span>NEL</span> SOS</div>
+  </div>
+  <nav class="nav-links">
+    <a href="/dashboard" class="nav-link">Dashboard</a>
+    <a href="/sos" class="nav-link active">SOS</a>
+    <a href="/maps" class="nav-link">Maps</a>
+  </nav>
+</header>
+
+<!-- TOAST -->
+<div class="toast" id="toast">✓ SOS ALERT DISPATCHED</div>
+
+<main class="main">
+
+  <!-- HERO -->
+  <div class="sos-hero">
+    <div class="sos-title">EMERGENCY SOS</div>
+    <div class="sos-sub">// SENTINEL RAPID RESPONSE SYSTEM — NIT HAMIRPUR</div>
+  </div>
+
+  <!-- BIG BUTTON -->
+  <div class="sos-btn-container">
+    <div class="sos-btn" onclick="triggerSOS()">
+      <div class="sos-btn-label">SOS</div>
+      <div class="sos-btn-sub">TAP TO DISPATCH</div>
+    </div>
+  </div>
+
+  <!-- GRID -->
+  <div class="sos-grid">
+    <!-- MANUAL FORM -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-head-title">Manual Alert</div>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Location</label>
+          <input type="text" class="form-control" id="sos-location" placeholder="e.g. NIT Hamirpur Library"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Device ID</label>
+          <select class="form-control" id="sos-device">
+            <option>ARD-001</option>
+            <option>ARD-002</option>
+            <option>ARD-003</option>
+            <option>ARD-004</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alert Type</label>
+          <select class="form-control" id="sos-type">
+            <option>Panic Button</option>
+            <option>Medical Emergency</option>
+            <option>Fire Alert</option>
+            <option>Intrusion Detected</option>
+            <option>Manual Override</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Coordinates</label>
+          <input type="text" class="form-control" id="sos-coords" placeholder="31.7082,76.5270"/>
+        </div>
+        <button class="btn-send" onclick="sendManualAlert()">⚡ DISPATCH ALERT</button>
+      </div>
+    </div>
+
+    <!-- RECENT SOS -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-head-title">Recent SOS Events</div>
+      </div>
+      <div class="sos-list" id="sos-list">
+        <div style="padding:2rem;text-align:center;color:var(--text-secondary);font-family:'Share Tech Mono',monospace;font-size:0.75rem;">
+          LOADING...
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  function showToast(msg, isError=false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isError?' error':'');
+    setTimeout(() => t.className = 'toast' + (isError?' error':''), 3000);
+  }
+
+  async function triggerSOS() {
+    try {
+      await fetch('/api/simulate');
+      showToast('✓ SOS ALERT DISPATCHED');
+      loadSOS();
+    } catch(e) { showToast('✗ DISPATCH FAILED', true); }
+  }
+
+  async function sendManualAlert() {
+    const loc = document.getElementById('sos-location').value || 'Unknown Location';
+    const device = document.getElementById('sos-device').value;
+    const type = document.getElementById('sos-type').value;
+    try {
+      await fetch('/api/simulate');
+      showToast('✓ MANUAL ALERT SENT');
+      loadSOS();
+    } catch(e) { showToast('✗ FAILED TO SEND', true); }
+  }
+
+  async function loadSOS() {
+    try {
+      const res = await fetch('/api/emergencies');
+      const data = await res.json();
+      const list = document.getElementById('sos-list');
+      if (data.length === 0) {
+        list.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-secondary);font-family:\'Share Tech Mono\',monospace;font-size:0.75rem;">NO EVENTS</div>';
+        return;
+      }
+      list.innerHTML = data.slice(0,8).map(a => `
+        <div class="sos-item">
+          <div class="sos-item-dot ${a.status==='Active'?'active':'resolved'}"></div>
+          <div class="sos-item-info">
+            <div class="sos-item-loc">${a.location||'Unknown'}</div>
+            <div class="sos-item-meta">${a.device||''} | ${a.timestamp||''} | ${a.type||''}</div>
+          </div>
+          <div class="sos-item-status ${a.status==='Active'?'active':'resolved'}">${a.status||'N/A'}</div>
+        </div>
+      `).join('');
+    } catch(e) {}
+  }
+
+  loadSOS();
+  setInterval(loadSOS, 5000);
+</script>
+</body>
+</html>

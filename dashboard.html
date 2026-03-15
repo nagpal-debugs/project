@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SENTINEL — Police Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-dark:#030b14; --bg-panel:#071525; --bg-card:#0a1e33;
+      --blue-primary:#0d6efd; --blue-bright:#3d9bff; --blue-glow:rgba(13,110,253,0.35);
+      --blue-accent:#00c8ff; --red-alert:#ff3b3b; --green-ok:#00e676;
+      --yellow-warn:#ffd600; --orange:#ff8c00; --text-primary:#e8f4ff;
+      --text-secondary:#7aa3c8; --text-mono:#4fc3f7;
+      --border:rgba(61,155,255,0.18); --border-bright:rgba(61,155,255,0.5);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg-dark);color:var(--text-primary);font-family:'Barlow',sans-serif;min-height:100vh;overflow-x:hidden}
+    body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(13,110,253,0.12) 0%,transparent 60%),radial-gradient(ellipse at 80% 100%,rgba(0,200,255,0.07) 0%,transparent 50%);pointer-events:none;z-index:0}
+
+    /* FLASH */
+    #flash-overlay{position:fixed;inset:0;z-index:9999;pointer-events:none;background:rgba(255,0,0,0)}
+    #flash-overlay.flash{animation:redFlash 2s ease-out forwards}
+    @keyframes redFlash{0%{background:rgba(255,20,20,0)}10%{background:rgba(255,20,20,0.7)}25%{background:rgba(255,20,20,0)}38%{background:rgba(255,20,20,0.5)}52%{background:rgba(255,20,20,0)}64%{background:rgba(255,20,20,0.3)}80%{background:rgba(255,20,20,0)}100%{background:rgba(255,20,20,0)}}
+
+    /* BANNER */
+    #emergency-banner{position:fixed;top:0;left:0;right:0;z-index:5000;height:0;overflow:hidden;background:linear-gradient(90deg,#6b0000,#ff1a1a,#6b0000);display:flex;align-items:center;justify-content:center;gap:1.5rem;transition:height 0.3s ease}
+    #emergency-banner.show{height:52px}
+    .banner-text{font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:0.25em;color:#fff;animation:bannerPulse 0.6s ease-in-out infinite alternate}
+    @keyframes bannerPulse{from{opacity:1}to{opacity:0.5}}
+    .banner-close{position:absolute;right:1.5rem;background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:1.2rem;cursor:pointer;border-radius:4px;padding:2px 8px}
+
+    /* TOAST */
+    #alert-toast{position:fixed;bottom:50px;right:1.5rem;z-index:8000;background:var(--bg-panel);border:1px solid var(--red-alert);border-left:4px solid var(--red-alert);border-radius:8px;padding:1rem 1.2rem;min-width:280px;box-shadow:0 0 30px rgba(255,59,59,0.4);transform:translateX(120%);transition:transform 0.4s cubic-bezier(0.175,0.885,0.32,1.275)}
+    #alert-toast.show{transform:translateX(0)}
+    .toast-title{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--red-alert);letter-spacing:0.1em;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+    .toast-dot{width:8px;height:8px;border-radius:50%;background:var(--red-alert);animation:blink 0.5s infinite}
+    .toast-body{font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--text-secondary)}
+    .toast-loc{color:var(--text-primary);font-size:0.8rem;margin-top:2px}
+
+    /* TOPBAR */
+    .topbar{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 2rem;height:60px;background:rgba(3,11,20,0.95);border-bottom:1px solid var(--border-bright);backdrop-filter:blur(12px)}
+    .topbar-brand{display:flex;align-items:center;gap:12px}
+    .brand-icon{width:36px;height:36px;background:var(--blue-primary);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-size:16px;color:white;font-weight:700;box-shadow:0 0 20px var(--blue-glow);animation:pulse-icon 3s ease-in-out infinite}
+    @keyframes pulse-icon{0%,100%{box-shadow:0 0 20px var(--blue-glow)}50%{box-shadow:0 0 40px rgba(13,110,253,0.7)}}
+    .brand-name{font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:700;letter-spacing:0.15em}
+    .brand-name span{color:var(--blue-accent)}
+    .topbar-center{font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:var(--text-mono);letter-spacing:0.05em}
+    .topbar-right{display:flex;align-items:center;gap:1rem}
+    .status-pill{display:flex;align-items:center;gap:6px;font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--green-ok);border:1px solid rgba(0,230,118,0.3);padding:4px 10px;border-radius:20px;background:rgba(0,230,118,0.05)}
+    .status-dot{width:7px;height:7px;border-radius:50%;background:var(--green-ok);animation:blink 1.5s ease-in-out infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+    .nav-links{display:flex;gap:0.5rem}
+    .nav-link{padding:6px 14px;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:600;letter-spacing:0.08em;color:var(--text-secondary);text-decoration:none;border:1px solid transparent;border-radius:4px;transition:all 0.2s}
+    .nav-link:hover,.nav-link.active{color:var(--blue-accent);border-color:var(--border-bright);background:rgba(13,110,253,0.1)}
+    .mute-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(255,214,0,0.1);border:1px solid rgba(255,214,0,0.3);color:var(--yellow-warn);font-family:'Rajdhani',sans-serif;font-size:0.8rem;font-weight:600;border-radius:4px;cursor:pointer;transition:all 0.2s}
+
+    /* ARDUINO BAR */
+    .arduino-bar{display:flex;align-items:center;gap:10px;justify-content:center;padding:6px;font-family:'Share Tech Mono',monospace;font-size:0.72rem;background:rgba(13,110,253,0.05);border-bottom:1px solid var(--border)}
+    .arduino-indicator{width:8px;height:8px;border-radius:50%}
+    .arduino-indicator.connected{background:var(--green-ok);box-shadow:0 0 8px var(--green-ok);animation:blink 1.5s infinite}
+    .arduino-indicator.disconnected{background:var(--red-alert)}
+
+    /* ALERT TYPE BADGES */
+    .type-panic{background:rgba(255,59,59,0.15);color:#ff3b3b;border:1px solid rgba(255,59,59,0.4)}
+    .type-fire{background:rgba(255,140,0,0.15);color:#ff8c00;border:1px solid rgba(255,140,0,0.4)}
+    .type-medical{background:rgba(0,230,118,0.12);color:#00e676;border:1px solid rgba(0,230,118,0.4)}
+    .type-intrusion{background:rgba(255,214,0,0.12);color:#ffd600;border:1px solid rgba(255,214,0,0.4)}
+
+    /* LAYOUT */
+    .main{position:relative;z-index:1;padding:1.2rem 2rem;max-width:1800px;margin:0 auto}
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.2rem}
+    .stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:1.2rem 1.4rem;position:relative;overflow:hidden;transition:border-color 0.3s,transform 0.2s}
+    .stat-card:hover{border-color:var(--border-bright);transform:translateY(-2px)}
+    .stat-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%}
+    .stat-card.red::before{background:var(--red-alert)}
+    .stat-card.blue::before{background:var(--blue-primary)}
+    .stat-card.green::before{background:var(--green-ok)}
+    .stat-card.yellow::before{background:var(--yellow-warn)}
+    .stat-label{font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-secondary);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.5rem}
+    .stat-value{font-family:'Rajdhani',sans-serif;font-size:2.4rem;font-weight:700;line-height:1}
+    .stat-card.red .stat-value{color:var(--red-alert)}
+    .stat-card.blue .stat-value{color:var(--blue-bright)}
+    .stat-card.green .stat-value{color:var(--green-ok)}
+    .stat-card.yellow .stat-value{color:var(--yellow-warn)}
+    .stat-value.bump{animation:bump 0.4s ease-out}
+    @keyframes bump{0%{transform:scale(1)}50%{transform:scale(1.3)}100%{transform:scale(1)}}
+    .stat-sub{font-size:0.75rem;color:var(--text-secondary);margin-top:0.3rem}
+
+    /* 3-COLUMN GRID */
+    .content-grid{display:grid;grid-template-columns:1fr 1fr 340px;gap:1.2rem;margin-bottom:1.2rem}
+
+    .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.9rem}
+    .section-title{font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:600;letter-spacing:0.2em;color:var(--text-secondary);text-transform:uppercase}
+    .section-title::before{content:'// ';color:var(--blue-accent)}
+    .panel{background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+    .panel-head{padding:0.9rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:rgba(13,110,253,0.05)}
+    .panel-head-title{font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase}
+    .badge{font-family:'Share Tech Mono',monospace;font-size:0.7rem;padding:2px 8px;border-radius:12px}
+    .badge-red{background:rgba(255,59,59,0.15);color:var(--red-alert);border:1px solid rgba(255,59,59,0.3)}
+    .badge-green{background:rgba(0,230,118,0.1);color:var(--green-ok);border:1px solid rgba(0,230,118,0.3)}
+
+    /* ALERTS */
+    .alerts-list{padding:0.5rem;max-height:380px;overflow-y:auto}
+    .alerts-list::-webkit-scrollbar{width:3px}
+    .alerts-list::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:2px}
+    .alert-item{display:flex;gap:0.8rem;align-items:flex-start;padding:0.8rem 0.9rem;border-radius:6px;border:1px solid transparent;margin-bottom:0.4rem;cursor:pointer;transition:all 0.2s}
+    .alert-item.new-alert-anim{animation:slideInAlert 0.5s cubic-bezier(0.175,0.885,0.32,1.275)}
+    @keyframes slideInAlert{from{opacity:0;transform:translateX(-20px) scale(0.95)}to{opacity:1;transform:translateX(0) scale(1)}}
+    .alert-item:hover{background:rgba(13,110,253,0.08);border-color:var(--border)}
+    .alert-item.active-alert{background:rgba(255,59,59,0.06);border-color:rgba(255,59,59,0.2)}
+    .alert-item.resolved{opacity:0.5}
+    .alert-icon{font-size:1.3rem;flex-shrink:0;margin-top:2px}
+    .alert-info{flex:1;min-width:0}
+    .alert-title{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:0.9rem;color:var(--text-primary);margin-bottom:2px}
+    .alert-meta{font-family:'Share Tech Mono',monospace;font-size:0.67rem;color:var(--text-secondary)}
+    .alert-meta span{color:var(--blue-accent)}
+    .alert-type-badge{font-size:0.65rem;font-family:'Share Tech Mono',monospace;padding:2px 7px;border-radius:4px;white-space:nowrap;flex-shrink:0}
+    .resolve-btn{padding:3px 10px;background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.4);color:var(--green-ok);font-family:'Rajdhani',sans-serif;font-size:0.75rem;font-weight:700;letter-spacing:0.08em;border-radius:4px;cursor:pointer;white-space:nowrap;transition:all 0.2s;flex-shrink:0}
+    .resolve-btn:hover{background:rgba(0,230,118,0.25);box-shadow:0 0 10px rgba(0,230,118,0.3)}
+    .resolved-tag{font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--green-ok);opacity:0.6;white-space:nowrap;flex-shrink:0}
+
+    .btn-simulate{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;background:rgba(255,59,59,0.1);border:1px solid rgba(255,59,59,0.4);color:var(--red-alert);font-family:'Rajdhani',sans-serif;font-size:0.82rem;font-weight:600;letter-spacing:0.1em;border-radius:4px;cursor:pointer;text-transform:uppercase;transition:all 0.2s}
+    .btn-simulate:hover{background:rgba(255,59,59,0.2);box-shadow:0 0 15px rgba(255,59,59,0.3)}
+    .btn-simulate .dot{width:7px;height:7px;border-radius:50%;background:var(--red-alert);animation:blink 1s infinite}
+
+    /* CHART PANEL */
+    .chart-wrap{padding:1rem;height:260px;position:relative}
+
+    /* CCTV PANEL */
+    .cctv-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px}
+    .cctv-feed{position:relative;background:#000;border-radius:4px;overflow:hidden;aspect-ratio:16/9;border:1px solid var(--border)}
+    .cctv-canvas{width:100%;height:100%;display:block}
+    .cctv-label{position:absolute;bottom:4px;left:6px;font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:rgba(255,255,255,0.7);background:rgba(0,0,0,0.6);padding:1px 5px;border-radius:2px}
+    .cctv-rec{position:absolute;top:5px;right:6px;display:flex;align-items:center;gap:3px;font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:#ff3b3b}
+    .cctv-rec-dot{width:5px;height:5px;border-radius:50%;background:#ff3b3b;animation:blink 1s infinite}
+    .cctv-time{position:absolute;top:5px;left:6px;font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:rgba(255,255,255,0.6)}
+
+    /* SIDEBAR */
+    .sidebar{display:flex;flex-direction:column;gap:1rem}
+    .device-list{padding:0.4rem}
+    .device-item{display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.8rem;border-bottom:1px solid var(--border)}
+    .device-item:last-child{border-bottom:none}
+    .device-id{font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--text-mono)}
+    .device-loc{font-size:0.7rem;color:var(--text-secondary);margin-top:1px}
+    .device-status{font-size:0.65rem;font-family:'Share Tech Mono',monospace;padding:2px 7px;border-radius:20px}
+    .device-status.online{background:rgba(0,230,118,0.1);color:var(--green-ok);border:1px solid rgba(0,230,118,0.3)}
+    .quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;padding:0.8rem}
+    .action-btn{padding:0.7rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);font-family:'Rajdhani',sans-serif;font-size:0.8rem;font-weight:600;letter-spacing:0.08em;cursor:pointer;text-align:center;text-decoration:none;display:block;transition:all 0.2s;text-transform:uppercase}
+    .action-btn:hover{background:rgba(13,110,253,0.12);border-color:var(--blue-primary);color:var(--blue-bright)}
+    .action-btn .icon{font-size:1.1rem;display:block;margin-bottom:3px}
+
+    /* TICKER */
+    .ticker{position:fixed;bottom:0;left:0;right:0;height:30px;background:rgba(3,11,20,0.97);border-top:1px solid var(--border);display:flex;align-items:center;overflow:hidden;z-index:99}
+    .ticker-label{padding:0 12px;font-family:'Rajdhani',sans-serif;font-size:0.72rem;font-weight:700;letter-spacing:0.15em;color:var(--blue-accent);background:rgba(13,110,253,0.15);border-right:1px solid var(--border);height:100%;display:flex;align-items:center;white-space:nowrap}
+    .ticker-track{display:flex;gap:3rem;animation:ticker 28s linear infinite;white-space:nowrap;padding-left:2rem}
+    @keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+    .ticker-item{font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-secondary)}
+    .ticker-item span{color:var(--blue-accent)}
+  </style>
+</head>
+<body>
+<div id="flash-overlay"></div>
+<div id="emergency-banner">
+  <div class="banner-text">⚠ EMERGENCY SOS TRIGGERED — UNITS RESPOND IMMEDIATELY ⚠</div>
+  <button class="banner-close" onclick="dismissBanner()">✕</button>
+</div>
+<div id="alert-toast">
+  <div class="toast-title"><div class="toast-dot"></div><span id="toast-icon">🚨</span> NEW EMERGENCY ALERT</div>
+  <div class="toast-body">Device: <span id="toast-device">—</span></div>
+  <div class="toast-loc" id="toast-location">—</div>
+  <div class="toast-body" id="toast-time">—</div>
+</div>
+
+<header class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-icon">S</div>
+    <div class="brand-name">SENTI<span>NEL</span></div>
+  </div>
+  <div class="topbar-center" id="clock">INITIALIZING...</div>
+  <div class="topbar-right">
+    <button class="mute-btn" id="mute-btn" onclick="toggleMute()">🔊 SOUND ON</button>
+    <div class="status-pill"><div class="status-dot"></div>SYSTEM ONLINE</div>
+    <nav class="nav-links">
+      <a href="/dashboard" class="nav-link active">Dashboard</a>
+      <a href="/sos" class="nav-link">SOS</a>
+      <a href="/maps" class="nav-link">Maps</a>
+    </nav>
+  </div>
+</header>
+<div class="arduino-bar">
+  <div class="arduino-indicator" id="arduino-indicator"></div>
+  <span id="arduino-status" style="color:var(--text-secondary)">Checking Arduino...</span>
+</div>
+
+<main class="main" style="padding-bottom:38px;">
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card red"><div class="stat-label">🚨 Active Alerts</div><div class="stat-value" id="active-count">—</div><div class="stat-sub">Requiring immediate action</div></div>
+    <div class="stat-card blue"><div class="stat-label">📋 Total Incidents</div><div class="stat-value" id="total-count">—</div><div class="stat-sub">All time recorded</div></div>
+    <div class="stat-card green"><div class="stat-label">✅ Resolved</div><div class="stat-value" id="resolved-count">—</div><div class="stat-sub">Cases closed</div></div>
+    <div class="stat-card yellow"><div class="stat-label">📡 Active Units</div><div class="stat-value">4</div><div class="stat-sub">ARD devices online</div></div>
+  </div>
+
+  <!-- 3-COL GRID -->
+  <div class="content-grid">
+
+    <!-- COL 1: ALERTS -->
+    <div>
+      <div class="section-header">
+        <div class="section-title">Live Incident Feed</div>
+        <button class="btn-simulate" onclick="simulateAlert()"><div class="dot"></div> Simulate</button>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-head-title">Emergency Log</div>
+          <span class="badge badge-red" id="alert-badge">Loading...</span>
+        </div>
+        <div class="alerts-list" id="alerts-container">
+          <div style="padding:2rem;text-align:center;color:var(--text-secondary);font-family:'Share Tech Mono',monospace;font-size:0.8rem;">LOADING FEED...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COL 2: CHART + CCTV -->
+    <div style="display:flex;flex-direction:column;gap:1rem;">
+
+      <!-- CHART -->
+      <div>
+        <div class="section-header">
+          <div class="section-title">Incident Analytics</div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-head-title">Daily Incident Report</div>
+            <span class="badge" style="background:rgba(0,200,255,0.1);color:var(--blue-accent);border:1px solid rgba(0,200,255,0.3)">LAST 7 DAYS</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="incidentChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- CCTV -->
+      <div>
+        <div class="section-header">
+          <div class="section-title">CCTV Surveillance</div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-head-title">Live Camera Feeds</div>
+            <span class="badge badge-red">4 ACTIVE</span>
+          </div>
+          <div class="cctv-grid" id="cctv-grid">
+            <div class="cctv-feed"><canvas class="cctv-canvas" id="cam1"></canvas><div class="cctv-time" id="ctime1">00:00:00</div><div class="cctv-label">CAM-01 · Library</div><div class="cctv-rec"><div class="cctv-rec-dot"></div>REC</div></div>
+            <div class="cctv-feed"><canvas class="cctv-canvas" id="cam2"></canvas><div class="cctv-time" id="ctime2">00:00:00</div><div class="cctv-label">CAM-02 · Gate</div><div class="cctv-rec"><div class="cctv-rec-dot"></div>REC</div></div>
+            <div class="cctv-feed"><canvas class="cctv-canvas" id="cam3"></canvas><div class="cctv-time" id="ctime3">00:00:00</div><div class="cctv-label">CAM-03 · Main Road</div><div class="cctv-rec"><div class="cctv-rec-dot"></div>REC</div></div>
+            <div class="cctv-feed"><canvas class="cctv-canvas" id="cam4"></canvas><div class="cctv-time" id="ctime4">00:00:00</div><div class="cctv-label">CAM-04 · Hostel A</div><div class="cctv-rec"><div class="cctv-rec-dot"></div>REC</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COL 3: SIDEBAR -->
+    <div class="sidebar">
+      <div>
+        <div class="section-header"><div class="section-title">Quick Actions</div></div>
+        <div class="panel">
+          <div class="quick-actions">
+            <a href="/sos" class="action-btn"><span class="icon">🆘</span>SOS Panel</a>
+            <a href="/maps" class="action-btn"><span class="icon">🗺️</span>Live Map</a>
+            <a href="/api/simulate" class="action-btn" target="_blank"><span class="icon">⚡</span>API Test</a>
+            <a href="/api/emergencies" class="action-btn" target="_blank"><span class="icon">📡</span>Raw Feed</a>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="section-header"><div class="section-title">ARD Devices</div></div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-head-title">Device Status</div><span class="badge badge-green">4 ONLINE</span></div>
+          <div class="device-list">
+            <div class="device-item"><div><div class="device-id">ARD-001</div><div class="device-loc">NIT Hamirpur Library</div></div><div class="device-status online">ONLINE</div></div>
+            <div class="device-item"><div><div class="device-id">ARD-002</div><div class="device-loc">NIT Hamirpur Gate</div></div><div class="device-status online">ONLINE</div></div>
+            <div class="device-item"><div><div class="device-id">ARD-003</div><div class="device-loc">Main Road</div></div><div class="device-status online">ONLINE</div></div>
+            <div class="device-item"><div><div class="device-id">ARD-004</div><div class="device-loc">Hostel Block A</div></div><div class="device-status online">ONLINE</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-head-title">Alert Types Today</div></div>
+        <div style="padding:1rem;display:flex;flex-direction:column;gap:0.6rem">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-family:'Share Tech Mono',monospace;font-size:0.75rem">🚨 Panic Button</span>
+            <span id="type-panic-count" style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--red-alert)">0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-family:'Share Tech Mono',monospace;font-size:0.75rem">🔥 Fire Alert</span>
+            <span id="type-fire-count" style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--orange)">0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-family:'Share Tech Mono',monospace;font-size:0.75rem">🏥 Medical</span>
+            <span id="type-medical-count" style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--green-ok)">0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-family:'Share Tech Mono',monospace;font-size:0.75rem">⚠️ Intrusion</span>
+            <span id="type-intrusion-count" style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--yellow-warn)">0</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-head-title">System Info</div></div>
+        <div style="padding:0.9rem;font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-secondary);line-height:2.1">
+          <div>SERVER <span style="color:var(--green-ok);float:right">127.0.0.1:5000</span></div>
+          <div>MODE <span style="color:var(--yellow-warn);float:right">DEBUG</span></div>
+          <div>VERSION <span style="color:var(--text-mono);float:right">v1.0.0</span></div>
+          <div>UPTIME <span style="color:var(--text-mono);float:right" id="uptime">00:00:00</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="ticker">
+  <div class="ticker-label">LIVE FEED</div>
+  <div style="overflow:hidden;flex:1">
+    <div class="ticker-track">
+      <span class="ticker-item">◆ SENTINEL ACTIVE &nbsp;&nbsp;</span>
+      <span class="ticker-item">◆ ALL ARD DEVICES <span>OPERATIONAL</span> &nbsp;&nbsp;</span>
+      <span class="ticker-item">◆ NIT HAMIRPUR CAMPUS MONITORING <span>ENABLED</span> &nbsp;&nbsp;</span>
+      <span class="ticker-item">◆ EMERGENCY RESPONSE <span>READY</span> &nbsp;&nbsp;</span>
+      <span class="ticker-item">◆ CCTV SURVEILLANCE <span>ACTIVE</span> &nbsp;&nbsp;</span>
+      <span class="ticker-item">◆ SENTINEL ACTIVE &nbsp;&nbsp;</span>
+      <span class="ticker-item">◆ ALL ARD DEVICES <span>OPERATIONAL</span> &nbsp;&nbsp;</span>
+      <span class="ticker-item">◆ NIT HAMIRPUR CAMPUS MONITORING <span>ENABLED</span> &nbsp;&nbsp;</span>
+      <span class="ticker-item">◆ EMERGENCY RESPONSE <span>READY</span> &nbsp;&nbsp;</span>
+      <span class="ticker-item">◆ CCTV SURVEILLANCE <span>ACTIVE</span> &nbsp;&nbsp;</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── ALERT TYPES CONFIG ─────────────────────────────────────
+const ALERT_TYPES = [
+  { type:'Panic Button',  icon:'🚨', cls:'type-panic',     color:'#ff3b3b' },
+  { type:'Fire Alert',    icon:'🔥', cls:'type-fire',      color:'#ff8c00' },
+  { type:'Medical',       icon:'🏥', cls:'type-medical',   color:'#00e676' },
+  { type:'Intrusion',     icon:'⚠️', cls:'type-intrusion', color:'#ffd600' },
+];
+function randomAlertType(){ return ALERT_TYPES[Math.floor(Math.random()*ALERT_TYPES.length)]; }
+function getTypeConfig(typeName){ return ALERT_TYPES.find(t=>t.type===typeName)||ALERT_TYPES[0]; }
+
+// ── AUDIO ─────────────────────────────────────────────────
+let audioCtx=null, muted=false;
+function getCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx}
+function playSiren(){
+  if(muted)return;
+  try{
+    const ctx=getCtx(),now=ctx.currentTime;
+    for(let i=0;i<4;i++){
+      const osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.connect(gain);gain.connect(ctx.destination);
+      const t=now+i*0.85;
+      osc.frequency.setValueAtTime(880,t);osc.frequency.linearRampToValueAtTime(660,t+0.4);osc.frequency.linearRampToValueAtTime(880,t+0.85);
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(0.3,t+0.05);gain.gain.setValueAtTime(0.3,t+0.75);gain.gain.linearRampToValueAtTime(0,t+0.85);
+      osc.type='sawtooth';osc.start(t);osc.stop(t+0.85);
+    }
+  }catch(e){}
+}
+function toggleMute(){
+  muted=!muted;
+  const btn=document.getElementById('mute-btn');
+  btn.textContent=muted?'🔇 MUTED':'🔊 SOUND ON';
+  btn.style.color=muted?'var(--text-secondary)':'var(--yellow-warn)';
+}
+
+// ── FLASH & BANNER ────────────────────────────────────────
+function triggerFlash(){const o=document.getElementById('flash-overlay');o.classList.remove('flash');void o.offsetWidth;o.classList.add('flash');setTimeout(()=>o.classList.remove('flash'),2000)}
+function showBanner(){document.getElementById('emergency-banner').classList.add('show')}
+function dismissBanner(){document.getElementById('emergency-banner').classList.remove('show')}
+function showToast(a){
+  const tc=getTypeConfig(a.type);
+  document.getElementById('toast-icon').textContent=tc.icon;
+  document.getElementById('toast-device').textContent=a.device||'N/A';
+  document.getElementById('toast-location').textContent=a.location||'Unknown';
+  document.getElementById('toast-time').textContent=a.timestamp||'';
+  const t=document.getElementById('alert-toast');
+  t.style.borderColor=tc.color;t.style.boxShadow=`0 0 30px ${tc.color}55`;
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),5000);
+}
+function triggerEmergency(a){playSiren();triggerFlash();showBanner();showToast(a)}
+
+// ── CLOCK ─────────────────────────────────────────────────
+function updateClock(){
+  const n=new Date();
+  document.getElementById('clock').textContent=
+    n.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).toUpperCase()+'  |  '+n.toTimeString().slice(0,8);
+  // Update CCTV timestamps
+  const t=n.toTimeString().slice(0,8);
+  for(let i=1;i<=4;i++){const el=document.getElementById('ctime'+i);if(el)el.textContent=t;}
+}
+setInterval(updateClock,1000);updateClock();
+
+// ── UPTIME ────────────────────────────────────────────────
+let startTime=Date.now();
+setInterval(()=>{
+  let s=Math.floor((Date.now()-startTime)/1000);
+  document.getElementById('uptime').textContent=
+    String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor((s%3600)/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+},1000);
+
+// ── STATS ─────────────────────────────────────────────────
+function bumpStat(id,val){
+  const el=document.getElementById(id);
+  if(el&&el.textContent!==String(val)){
+    el.textContent=val;el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump');
+    setTimeout(()=>el.classList.remove('bump'),400);
+  }
+}
+
+// ── CHART ─────────────────────────────────────────────────
+const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const chartData={panic:[3,5,2,8,4,6,2],fire:[1,0,2,1,3,0,1],medical:[2,3,1,4,2,1,3],intrusion:[0,1,2,0,1,2,1]};
+let incidentChart;
+function initChart(){
+  const ctx=document.getElementById('incidentChart').getContext('2d');
+  incidentChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:days,
+      datasets:[
+        {label:'Panic',data:chartData.panic,backgroundColor:'rgba(255,59,59,0.7)',borderColor:'#ff3b3b',borderWidth:1,borderRadius:3},
+        {label:'Fire',data:chartData.fire,backgroundColor:'rgba(255,140,0,0.7)',borderColor:'#ff8c00',borderWidth:1,borderRadius:3},
+        {label:'Medical',data:chartData.medical,backgroundColor:'rgba(0,230,118,0.6)',borderColor:'#00e676',borderWidth:1,borderRadius:3},
+        {label:'Intrusion',data:chartData.intrusion,backgroundColor:'rgba(255,214,0,0.6)',borderColor:'#ffd600',borderWidth:1,borderRadius:3},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#7aa3c8',font:{family:'Share Tech Mono',size:10},boxWidth:10}},tooltip:{backgroundColor:'#071525',titleColor:'#e8f4ff',bodyColor:'#7aa3c8',borderColor:'rgba(61,155,255,0.3)',borderWidth:1}},
+      scales:{
+        x:{grid:{color:'rgba(61,155,255,0.08)'},ticks:{color:'#7aa3c8',font:{family:'Share Tech Mono',size:10}}},
+        y:{grid:{color:'rgba(61,155,255,0.08)'},ticks:{color:'#7aa3c8',font:{family:'Share Tech Mono',size:10}},beginAtZero:true}
+      }
+    }
+  });
+}
+function updateChart(type){
+  if(!incidentChart)return;
+  const today=new Date().getDay();
+  const idx=today===0?6:today-1;
+  if(type==='Panic Button')chartData.panic[idx]++;
+  else if(type==='Fire Alert')chartData.fire[idx]++;
+  else if(type==='Medical')chartData.medical[idx]++;
+  else if(type==='Intrusion')chartData.intrusion[idx]++;
+  incidentChart.data.datasets[0].data=[...chartData.panic];
+  incidentChart.data.datasets[1].data=[...chartData.fire];
+  incidentChart.data.datasets[2].data=[...chartData.medical];
+  incidentChart.data.datasets[3].data=[...chartData.intrusion];
+  incidentChart.update('active');
+}
+
+// ── CCTV SIMULATION ───────────────────────────────────────
+const cctvState=[
+  {noise:0.05,brightness:0.85,hue:200,scanY:0,people:[{x:30,y:40,dx:0.3,dy:0.1}]},
+  {noise:0.04,brightness:0.9,hue:210,scanY:50,people:[{x:70,y:50,dx:-0.2,dy:0.15},{x:50,y:30,dx:0.1,dy:-0.1}]},
+  {noise:0.06,brightness:0.8,hue:195,scanY:100,people:[{x:20,y:60,dx:0.4,dy:0}]},
+  {noise:0.05,brightness:0.88,hue:205,scanY:150,people:[{x:60,y:45,dx:-0.3,dy:0.2},{x:40,y:55,dx:0.2,dy:-0.15}]},
+];
+const cctvColors=['#0a3a2a','#0a2a3a','#1a2a0a','#2a1a0a'];
+
+function drawCCTV(camId,state,colorBase){
+  const canvas=document.getElementById('cam'+camId);
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width=canvas.offsetWidth||160;
+  const H=canvas.height=canvas.offsetHeight||90;
+
+  // Background
+  ctx.fillStyle=colorBase;ctx.fillRect(0,0,W,H);
+
+  // Grid lines (CCTV perspective feel)
+  ctx.strokeStyle='rgba(255,255,255,0.03)';ctx.lineWidth=1;
+  for(let i=0;i<W;i+=20){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke()}
+  for(let i=0;i<H;i+=15){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke()}
+
+  // Moving silhouettes (people)
+  state.people.forEach(p=>{
+    p.x+=p.dx;p.y+=p.dy;
+    if(p.x<5||p.x>95){p.dx*=-1}
+    if(p.y<5||p.y>85){p.dy*=-1}
+    const px=(p.x/100)*W,py=(p.y/100)*H;
+    ctx.fillStyle='rgba(255,255,255,0.18)';
+    ctx.fillRect(px-3,py-10,7,14); // body
+    ctx.beginPath();ctx.arc(px,py-13,4,0,Math.PI*2);ctx.fill(); // head
+  });
+
+  // Scan line
+  state.scanY=(state.scanY+1.5)%(H+20);
+  const sg=ctx.createLinearGradient(0,state.scanY-8,0,state.scanY+8);
+  sg.addColorStop(0,'rgba(0,200,255,0)');sg.addColorStop(0.5,'rgba(0,200,255,0.18)');sg.addColorStop(1,'rgba(0,200,255,0)');
+  ctx.fillStyle=sg;ctx.fillRect(0,state.scanY-8,W,16);
+
+  // Noise overlay
+  for(let i=0;i<W*H*state.noise*0.3;i++){
+    const nx=Math.random()*W,ny=Math.random()*H;
+    ctx.fillStyle=`rgba(255,255,255,${Math.random()*0.15})`;
+    ctx.fillRect(nx,ny,1,1);
+  }
+
+  // Vignette
+  const vg=ctx.createRadialGradient(W/2,H/2,H*0.3,W/2,H/2,H*0.8);
+  vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,0.6)');
+  ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+}
+
+function animateCCTV(){
+  cctvColors.forEach((color,i)=>drawCCTV(i+1,cctvState[i],color));
+  requestAnimationFrame(animateCCTV);
+}
+
+// ── ALERTS FEED ───────────────────────────────────────────
+let lastAlertCount=0;
+async function loadAlerts(){
+  try{
+    const res=await fetch('/api/emergencies'),data=await res.json();
+    const active=data.filter(a=>a.status==='Active').length;
+    const resolved=data.filter(a=>a.status==='Resolved').length;
+    bumpStat('active-count',active);bumpStat('total-count',data.length);bumpStat('resolved-count',resolved);
+    document.getElementById('alert-badge').textContent=active+' ACTIVE';
+
+    // Type counts
+    const counts={panic:0,fire:0,medical:0,intrusion:0};
+    data.forEach(a=>{
+      if(a.type==='Panic Button')counts.panic++;
+      else if(a.type==='Fire Alert')counts.fire++;
+      else if(a.type==='Medical')counts.medical++;
+      else if(a.type==='Intrusion')counts.intrusion++;
+    });
+    document.getElementById('type-panic-count').textContent=counts.panic;
+    document.getElementById('type-fire-count').textContent=counts.fire;
+    document.getElementById('type-medical-count').textContent=counts.medical;
+    document.getElementById('type-intrusion-count').textContent=counts.intrusion;
+
+    if(data.length>lastAlertCount&&lastAlertCount>0){
+      const newest=data[0];if(newest.status==='Active'){triggerEmergency(newest);updateChart(newest.type);}
+    }
+    lastAlertCount=data.length;
+
+    const c=document.getElementById('alerts-container');
+    if(data.length===0){c.innerHTML='<div style="padding:2rem;text-align:center;color:var(--text-secondary);font-family:\'Share Tech Mono\',monospace;font-size:0.8rem;">NO INCIDENTS</div>';return}
+    c.innerHTML=data.map((a,i)=>{
+      const tc=getTypeConfig(a.type);
+      return`<div class="alert-item ${a.status==='Active'?'active-alert':'resolved'}${i===0?' new-alert-anim':''}">
+        <div class="alert-icon">${tc.icon}</div>
+        <div class="alert-info">
+          <div class="alert-title">${a.location||'Unknown'}</div>
+          <div class="alert-meta"><span>${a.device||'N/A'}</span> | ${a.timestamp||''}</div>
+        </div>
+        <span class="alert-type-badge ${tc.cls}">${a.type||'Alert'}</span>
+        ${a.status==='Active'?`<button class="resolve-btn" onclick="resolveAlert(${a.id},event)">✓ RESOLVE</button>`:'<span class="resolved-tag">✓ CLOSED</span>'}
+      </div>`;
+    }).join('');
+  }catch(e){}
+}
+
+// ── ARDUINO STATUS ────────────────────────────────────────
+async function checkArduino(){
+  try{
+    const res=await fetch('/api/status'),data=await res.json();
+    const ind=document.getElementById('arduino-indicator'),txt=document.getElementById('arduino-status');
+    if(data.arduino_connected){ind.className='arduino-indicator connected';txt.textContent='● Arduino '+data.arduino_status;txt.style.color='var(--green-ok)'}
+    else{ind.className='arduino-indicator disconnected';txt.textContent='✕ Arduino '+data.arduino_status;txt.style.color='var(--red-alert)'}
+  }catch(e){}
+}
+
+// ── RESOLVE ALERT ─────────────────────────────────────────
+async function resolveAlert(id, event) {
+  event.stopPropagation();
+  const btn = event.target;
+  btn.textContent = '...'; btn.disabled = true;
+  try {
+    const res = await fetch(`/api/resolve/${id}`);
+    const data = await res.json();
+    if(data.success) await loadAlerts();
+  } catch(e) { btn.textContent = '✓ RESOLVE'; btn.disabled = false; }
+}
+
+// ── SIMULATE ──────────────────────────────────────────────
+async function simulateAlert(){
+  try{
+    const res=await fetch('/api/simulate'),data=await res.json();
+    triggerEmergency(data.alert);updateChart(data.alert.type);await loadAlerts();
+  }catch(e){}
+}
+
+// ── INIT ──────────────────────────────────────────────────
+initChart();
+animateCCTV();
+loadAlerts();checkArduino();
+setInterval(loadAlerts,3000);setInterval(checkArduino,5000);
+</script>
+</body>
+</html>
